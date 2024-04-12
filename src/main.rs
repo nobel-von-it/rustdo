@@ -1,4 +1,4 @@
-use std::{io::stdout, str::FromStr};
+use std::io::stdout;
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
@@ -10,7 +10,6 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
     text::Text,
-    widgets::Block,
     Frame, Terminal,
 };
 enum State {
@@ -96,11 +95,11 @@ impl Screen {
             State::Insert => f.render_widget(
                 Text::raw("Insert").fg(color).on_light_blue(),
                 full_layout[1],
-            ),
+                ),
             State::Normal => f.render_widget(
                 Text::raw("Normal").fg(color).on_light_green(),
                 full_layout[1],
-            ),
+                ),
         };
         for (i, todo) in self.todos.iter().enumerate() {
             if self.select == i {
@@ -118,9 +117,9 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
+                     Constraint::Percentage((100 - percent_y) / 2),
+                     Constraint::Percentage(percent_y),
+                     Constraint::Percentage((100 - percent_y) / 2),
         ])
         .split(r);
 
@@ -128,9 +127,9 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
+                     Constraint::Percentage((100 - percent_x) / 2),
+                     Constraint::Percentage(percent_x),
+                     Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1] // Return the middle chunk
 }
