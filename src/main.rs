@@ -1,10 +1,15 @@
+
+mod fs;
+
 use std::io::stdout;
+use crate::fs::{read_todos, save_todos};
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use serde::{Serialize, Deserialize};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,11 +17,13 @@ use ratatui::{
     text::Text,
     Frame, Terminal,
 };
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum State {
     Insert,
     Normal,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Todo {
     text: String,
     is_done: bool,
@@ -36,6 +43,7 @@ impl Todo {
         }
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Screen {
     todos: Vec<Todo>,
     select: usize,
@@ -50,6 +58,19 @@ impl Screen {
             state: State::Normal,
         }
     }
+    fn from_file() -> Self {
+        read_todos()
+    }
+    fn save(&mut self) {
+        let mut new_todos = vec![];
+        for todo in self.todos.iter() {
+            if !todo.text.is_empty() {
+                new_todos.push(todo.clone());
+            }
+        }
+        self.todos = new_todos;
+        save_todos(self);
+    }
     fn up(&mut self) {
         if self.select > 0 {
             self.select -= 1
@@ -62,9 +83,12 @@ impl Screen {
     }
     fn add(&mut self) {
         self.todos.push(Todo::new());
+        self.down();
+        self.state = State::Insert;
     }
     fn remove(&mut self) {
         self.todos.remove(self.select);
+        self.up();
     }
     fn push(&mut self, c: char) {
         self.todos[self.select].text.push(c);
@@ -139,7 +163,7 @@ fn main() -> anyhow::Result<()> {
     execute!(stdout(), EnterAlternateScreen, EnableMouseCapture)?;
 
     let mut t = Terminal::new(CrosstermBackend::new(stdout()))?;
-    let mut screen = Screen::new(None);
+    let mut screen = Screen::from_file();
 
     let res = run(&mut t, &mut screen);
 
@@ -148,6 +172,7 @@ fn main() -> anyhow::Result<()> {
     t.show_cursor()?;
     res?;
 
+    println!("{screen:?}");
     Ok(())
 }
 fn run<B: Backend>(t: &mut Terminal<B>, screen: &mut Screen) -> anyhow::Result<()> {
@@ -159,7 +184,10 @@ fn run<B: Backend>(t: &mut Terminal<B>, screen: &mut Screen) -> anyhow::Result<(
             }
             match screen.state {
                 State::Normal => match key.code {
-                    KeyCode::Esc => break,
+                    KeyCode::Esc => {
+                        screen.save();
+                        break;
+                    },
                     KeyCode::Enter | KeyCode::Char('i') => screen.state = State::Insert,
                     KeyCode::Char(' ') | KeyCode::Char('o') => screen.toggle_done(),
                     KeyCode::Char('j') | KeyCode::Down => screen.down(),
