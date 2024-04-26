@@ -1,4 +1,3 @@
-
 fn check_dir() -> anyhow::Result<String> {
     let username = whoami::username();
     let path = format!("/home/{username}/.rustdo/");
@@ -32,16 +31,16 @@ pub fn read_todos() -> Screen {
     screen_from_file
 }
 pub fn save_todos(screen: &Screen) {
-    let path = check_dir().unwrap_or_else(|_| {
-        // println!("existing dir error");
+    let path = check_dir().unwrap_or_else(|err| {
+        println!("existing dir error {err}");
         std::process::exit(1)
     });
-    let file = std::fs::File::create(format!("{path}todos.json")).unwrap_or_else(|_| {
-        // println!("creating or opening file error");
+    let file = std::fs::File::create(format!("{path}todos.json")).unwrap_or_else(|err| {
+        println!("creating or opening file error {err}");
         std::process::exit(1)
     });
-    serde_json::to_writer(file, screen).unwrap_or_else(|_| {
-        // println!("saving todos to file error with {err}");
+    serde_json::to_writer(file, screen).unwrap_or_else(|err| {
+        println!("saving todos to file error with {err}");
         std::process::exit(1)
     });
 }

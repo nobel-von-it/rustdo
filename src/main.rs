@@ -1,15 +1,13 @@
-
 mod fs;
 
-use std::io::stdout;
 use crate::fs::{read_todos, save_todos};
+use std::{borrow::BorrowMut, io::stdout};
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use serde::{Serialize, Deserialize};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
@@ -17,6 +15,7 @@ use ratatui::{
     text::Text,
     Frame, Terminal,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum State {
@@ -27,12 +26,14 @@ enum State {
 struct Todo {
     text: String,
     is_done: bool,
+    position: usize,
 }
 impl Todo {
     fn new() -> Self {
         Self {
             text: String::new(),
             is_done: false,
+            position: 0,
         }
     }
     fn get_pretty(&self) -> String {
@@ -41,6 +42,34 @@ impl Todo {
         } else {
             format!(" [ ] {}  ", self.text)
         }
+    }
+    fn left(&mut self) {
+        if self.position > 0 {
+            self.position -= 1
+        }
+    }
+    fn right(&mut self) {
+        if self.position < self.text.len() {
+            self.position += 1
+        }
+    }
+    fn insert(&mut self, c: char) {
+        if self.text.len() > 100 {
+            return;
+        }
+        self.text.insert(self.position, c);
+        self.right();
+    }
+    fn remove(&mut self) {
+        if self.text.len() == 0 {
+            return;
+        }
+        if self.text.len() == self.position {
+            self.text.remove(self.position - 1);
+        } else {
+            self.text.remove(self.position);
+        }
+        self.left();
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +110,13 @@ impl Screen {
             self.select += 1
         }
     }
+    fn left(&mut self) {
+        self.todos[self.select].left();
+    }
+    fn right(&mut self) {
+        self.todos[self.select].right();
+    }
+    fn display_selected(&mut self) {}
     fn add(&mut self) {
         self.todos.push(Todo::new());
         self.down();
@@ -91,10 +127,10 @@ impl Screen {
         self.up();
     }
     fn push(&mut self, c: char) {
-        self.todos[self.select].text.push(c);
+        self.todos[self.select].insert(c)
     }
     fn pop(&mut self) {
-        self.todos[self.select].text.pop();
+        self.todos[self.select].remove()
     }
     fn toggle_done(&mut self) {
         self.todos[self.select].is_done = !self.todos[self.select].is_done;
@@ -119,11 +155,11 @@ impl Screen {
             State::Insert => f.render_widget(
                 Text::raw("Insert").fg(color).on_light_blue(),
                 full_layout[1],
-                ),
+            ),
             State::Normal => f.render_widget(
                 Text::raw("Normal").fg(color).on_light_green(),
                 full_layout[1],
-                ),
+            ),
         };
         for (i, todo) in self.todos.iter().enumerate() {
             if self.select == i {
@@ -141,9 +177,9 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-                     Constraint::Percentage((100 - percent_y) / 2),
-                     Constraint::Percentage(percent_y),
-                     Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
         ])
         .split(r);
 
@@ -151,9 +187,9 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-                     Constraint::Percentage((100 - percent_x) / 2),
-                     Constraint::Percentage(percent_x),
-                     Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1] // Return the middle chunk
 }
@@ -187,7 +223,7 @@ fn run<B: Backend>(t: &mut Terminal<B>, screen: &mut Screen) -> anyhow::Result<(
                     KeyCode::Esc => {
                         screen.save();
                         break;
-                    },
+                    }
                     KeyCode::Enter | KeyCode::Char('i') => screen.state = State::Insert,
                     KeyCode::Char(' ') | KeyCode::Char('o') => screen.toggle_done(),
                     KeyCode::Char('j') | KeyCode::Down => screen.down(),
@@ -207,6 +243,8 @@ fn run<B: Backend>(t: &mut Terminal<B>, screen: &mut Screen) -> anyhow::Result<(
                     KeyCode::Esc => screen.state = State::Normal,
                     KeyCode::Up => screen.up(),
                     KeyCode::Down => screen.down(),
+                    KeyCode::Left => screen.left(),
+                    KeyCode::Right => screen.right(),
                     KeyCode::Enter => {
                         // add subtask
                     }
